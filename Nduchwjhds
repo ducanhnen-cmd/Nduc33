@@ -1,0 +1,432 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local Window = Fluent:CreateWindow({
+    Title = "NducHub",
+    SubTitle = "By Nduc | King Legacy",
+    Size = UDim2.fromOffset(580, 480),
+    Acrylic = true,
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+-- Tạo các tab
+local TabInfo = Window:AddTab({Title = "Info", Icon = "info"})
+local TabStatus = Window:AddTab({Title = "Status & Server", Icon = "activity"})
+local TabMain = Window:AddTab({Title = "Main", Icon = "home"})
+local TabSettingFarm = Window:AddTab({Title = "Setting Farm", Icon = "settings"})
+local TabStats = Window:AddTab({Title = "Stats", Icon = "bar-chart"})
+local TabSeaEvent = Window:AddTab({Title = "Sea Event", Icon = "anchor"})
+local TabDungeon = Window:AddTab({Title = "Dungeon", Icon = "sword"})
+local TabTeleport = Window:AddTab({Title = "Teleport", Icon = "map-pin"})
+local TabShop = Window:AddTab({Title = "Shop", Icon = "shopping-cart"})
+
+-- Biến toàn cục
+local autoFarm = false
+local autoQuest = false
+local autoSeaEvent = false
+local autoDungeon = false
+local autoBuy = false
+local farmDelay = 0.5
+local selectedWeapon = "Sword"
+local selectedFruit = "Magma"
+local selectedIsland = "Đảo khởi đầu"
+
+-- Nút bật tắt hình tròn
+local screenGui = Instance.new("ScreenGui")
+screenGui.Parent = game:GetService("CoreGui")
+
+local ACCENT = Color3.fromRGB(96, 205, 255)
+
+local toggleButton = Instance.new("ImageButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Parent = screenGui
+toggleButton.Size = UDim2.new(0, 50, 0, 50)
+toggleButton.Position = UDim2.new(0, 20, 0.5, -25)
+toggleButton.BackgroundColor3 = ACCENT
+toggleButton.Image = "rbxassetid://88161224206829"
+toggleButton.ScaleType = Enum.ScaleType.Fit
+toggleButton.BorderSizePixel = 0
+
+local corner = Instance.new("UICorner")
+corner.Parent = toggleButton
+corner.CornerRadius = UDim.new(1, 0)
+
+local menuVisible = true
+
+local function toggleMenu()
+    menuVisible = not menuVisible
+    Window.Root.Visible = menuVisible
+    
+    if menuVisible then
+        toggleButton.Image = "rbxassetid://88161224206829"
+        toggleButton.BackgroundColor3 = ACCENT
+    else
+        toggleButton.Image = "rbxassetid://88161224206829"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    end
+end
+
+toggleButton.MouseButton1Click:Connect(toggleMenu)
+
+toggleButton.MouseEnter:Connect(function()
+    toggleButton.BackgroundColor3 = ACCENT:Lerp(Color3.fromRGB(255,255,255), 0.3)
+end)
+toggleButton.MouseLeave:Connect(function()
+    if menuVisible then
+        toggleButton.BackgroundColor3 = ACCENT
+    else
+        toggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    end
+end)
+
+-- Hàm teleport
+local function teleportTo(position)
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local hrp = character.HumanoidRootPart
+        local tween = TweenService:Create(hrp, TweenInfo.new(1, Enum.EasingStyle.Linear), {CFrame = position})
+        tween:Play()
+    end
+end
+
+-- Hàm farm quái
+local function startFarm()
+    while autoFarm and RunService.RenderStepped:Wait() do
+        local nearestEnemy = nil
+        local shortestDistance = math.huge
+        
+        for _, enemy in pairs(workspace:FindFirstChild("Enemies") or {}) do
+            if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                local distance = (LocalPlayer.Character.HumanoidRootPart.Position - enemy.HumanoidRootPart.Position).Magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    nearestEnemy = enemy
+                end
+            end
+        end
+        
+        if nearestEnemy then
+            teleportTo(nearestEnemy.HumanoidRootPart.CFrame)
+            task.wait(farmDelay)
+        end
+        task.wait()
+    end
+end
+
+-- Hàm auto quest
+local function startQuest()
+    while autoQuest and RunService.RenderStepped:Wait() do
+        local questRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+        if questRemote and questRemote:FindFirstChild("Quest") then
+            questRemote.Quest:FireServer("StartQuest", "NPC_Boss")
+        end
+        task.wait(5)
+    end
+end
+
+-- Hàm auto sea event
+local function startSeaEvent()
+    while autoSeaEvent and RunService.RenderStepped:Wait() do
+        local seaEventRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+        if seaEventRemote and seaEventRemote:FindFirstChild("SeaEvent") then
+            seaEventRemote.SeaEvent:FireServer("JoinSeaEvent")
+        end
+        task.wait(10)
+    end
+end
+
+-- Hàm auto dungeon
+local function startDungeon()
+    while autoDungeon and RunService.RenderStepped:Wait() do
+        local dungeonRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+        if dungeonRemote and dungeonRemote:FindFirstChild("Dungeon") then
+            dungeonRemote.Dungeon:FireServer("JoinDungeon", "Easy")
+        end
+        task.wait(30)
+    end
+end
+
+-- ============ TAB INFO ============
+TabInfo:AddSection("Thông Tin Script")
+TabInfo:AddLabel("Chúc các bạn trải nghiệm vui vẻ")
+TabInfo:AddButton({
+    Title = "Tham gia Discord",
+    Description = "https://discord.gg/Y3wvd5cmE",
+    Callback = function()
+        setclipboard("https://discord.gg/Y3wvd5cmE")
+        Fluent:Notify({
+            Title = "Discord",
+            Content = "Đã copy link Discord!",
+            SubContent = "https://discord.gg/Y3wvd5cmE",
+            Duration = 3
+        })
+    end
+})
+
+-- ============ TAB STATUS & SERVER (Tự động quét mỗi 5 giây) ============
+TabStatus:AddSection("📊 Thông Tin Server & Map")
+
+local serverTimeLabel = TabStatus:AddLabel("⏰ Thời gian server: Đang lấy...")
+local playerCountLabel = TabStatus:AddLabel("👥 Người chơi: " .. #Players:GetPlayers())
+local pingLabel = TabStatus:AddLabel("📡 Ping: Đang đo...")
+local serverUptimeLabel = TabStatus:AddLabel("⏱️ Uptime server: Đang tính...")
+local currentSeaLabel = TabStatus:AddLabel("🌊 Sea hiện tại: Đang xác định...")
+
+local seaEventLabel = TabStatus:AddLabel("🌊 Sea Event: 🔍 Đang quét...")
+local raceIslandLabel = TabStatus:AddLabel("🏝️ Race Island: 🔍 Đang quét...")
+local raidBossLabel = TabStatus:AddLabel("⚔️ Raid Boss: 🔍 Đang quét...")
+local worldBossLabel = TabStatus:AddLabel("👹 World Boss: 🔍 Đang quét...")
+
+-- Danh sách Sea Event Bosses
+local seaEventBosses = {
+    "Chaos Kraken", "Abyssal Tyrant", "Deepsea Crusher", "Drakenfyr",
+    "Inferno King", "Sea King", "Ghost Ship", "Hydra", "Kraken", "Sea Beast", "Leviathan"
+}
+
+-- Danh sách Raid Bosses
+local raidBosses = {
+    "King Samurai", "Oden", "Mrs. Mother", "Big Mom", "Dragon", "Kaido",
+    "Expert Swordsman", "Shanks", "Oars", "Oz"
+}
+
+-- Danh sách World Bosses
+local worldBosses = {
+    "Serpent", "Pteranodon"
+}
+
+-- Danh sách Race Islands
+local raceIslands = {
+    "Human", "Mink", "Angel", "Skypiea", "Fishman", "Demon", "Cyborg",
+    "Human Race", "Mink Race", "Angel Race", "Fishman Race", "Demon Race", "Cyborg Race"
+}
+
+local notifiedEvents = {seaEvent = {}, raidBoss = {}, worldBoss = {}, raceIsland = {}}
+
+local serverStartTime = tick()
+local function getServerUptime()
+    local uptime = tick() - serverStartTime
+    local hours = math.floor(uptime / 3600)
+    local minutes = math.floor((uptime % 3600) / 60)
+    local seconds = math.floor(uptime % 60)
+    return string.format("%02d:%02d:%02d", hours, minutes, seconds)
+end
+
+local function getCurrentSea()
+    local character = LocalPlayer.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local y = character.HumanoidRootPart.Position.Y
+        if y < 50 then return "🌊 Sea 1 (First Sea)"
+        elseif y < 200 then return "🌊 Sea 2 (Second Sea)"
+        elseif y < 500 then return "🌊 Sea 3 (Third Sea)"
+        else return "🌊 Vast Sea" end
+    end
+    return "🌊 Không xác định"
+end
+
+local function getBossType(bossName)
+    for _, name in pairs(seaEventBosses) do
+        if bossName:find(name) or name:find(bossName) then return "seaEvent", name end
+    end
+    for _, name in pairs(raidBosses) do
+        if bossName:find(name) or name:find(bossName) then return "raidBoss", name end
+    end
+    for _, name in pairs(worldBosses) do
+        if bossName:find(name) or name:find(bossName) then return "worldBoss", name end
+    end
+    return nil, nil
+end
+
+local function isRaceIsland(name)
+    for _, islandName in pairs(raceIslands) do
+        if name:find(islandName) or islandName:find(name) then return true, islandName end
+    end
+    return false, nil
+end
+
+local function notifyIfNewEvent(eventType, eventName)
+    local key = eventType .. "_" .. eventName
+    if not notifiedEvents[eventType][key] then
+        notifiedEvents[eventType][key] = true
+        local title = (eventType == "seaEvent" and "🌊 SEA EVENT ĐANG XUẤT HIỆN!") or
+                      (eventType == "raidBoss" and "⚔️ RAID BOSS ĐANG XUẤT HIỆN!") or
+                      (eventType == "worldBoss" and "🌍 WORLD BOSS ĐANG XUẤT HIỆN!") or
+                      (eventType == "raceIsland" and "🏝️ RACE ISLAND ĐANG XUẤT HIỆN!") or
+                      "👹 BOSS ĐANG XUẤT HIỆN!"
+        Fluent:Notify({Title = title, Content = eventName, SubContent = "Hãy nhanh chóng đến ngay!", Duration = 10})
+    end
+end
+
+local function resetNotificationIfGone(eventType, eventName)
+    local key = eventType .. "_" .. eventName
+    if notifiedEvents[eventType][key] then notifiedEvents[eventType][key] = nil end
+end
+
+local function scanMapForEvents()
+    local events = {seaEvent = {}, raidBoss = {}, worldBoss = {}, raceIsland = {}}
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") or obj:IsA("Part") or obj:IsA("MeshPart") then
+            local name = obj.Name
+            local isRace, raceName = isRaceIsland(name)
+            if isRace then table.insert(events.raceIsland, raceName) end
+            if obj:FindFirstChild("Humanoid") and obj.Humanoid.Health > 0 then
+                local bossType, bossName = getBossType(name)
+                if bossType == "seaEvent" then table.insert(events.seaEvent, bossName)
+                elseif bossType == "raidBoss" then table.insert(events.raidBoss, bossName)
+                elseif bossType == "worldBoss" then table.insert(events.worldBoss, bossName)
+                elseif obj.Humanoid.MaxHealth > 5000 then table.insert(events.raidBoss, name) end
+            end
+            if obj:FindFirstChild("BillboardGui") and obj:FindFirstChild("Humanoid") then
+                if obj.Humanoid.Health > 0 and obj.Humanoid.MaxHealth > 5000 then
+                    local bossName = obj.Name
+                    if not table.find(events.raidBoss, bossName) and not table.find(events.seaEvent, bossName) and not table.find(events.worldBoss, bossName) then
+                        table.insert(events.raidBoss, bossName)
+                    end
+                end
+            end
+        end
+    end
+    local function unique(t) local seen, result = {}, {} for _, v in ipairs(t) do if not seen[v] then seen[v] = true table.insert(result, v) end end return result end
+    events.seaEvent = unique(events.seaEvent)
+    events.raidBoss = unique(events.raidBoss)
+    events.worldBoss = unique(events.worldBoss)
+    events.raceIsland = unique(events.raceIsland)
+    return events
+end
+
+local lastScan = {seaEvent = {}, raidBoss = {}, worldBoss = {}, raceIsland = {}}
+
+local function updateStatusAndScan()
+    while task.wait(5) do
+        playerCountLabel:SetLabel("👥 Người chơi: " .. #Players:GetPlayers())
+        local success, ping = pcall(function() return game:GetService("Stats"):GetNetworkStats():GetAveragePing() end)
+        if success then pingLabel:SetLabel("📡 Ping: " .. math.floor(ping) .. " ms") end
+        serverTimeLabel:SetLabel("⏰ Thời gian: " .. os.date("%H:%M:%S"))
+        serverUptimeLabel:SetLabel("⏱️ Uptime: " .. getServerUptime())
+        currentSeaLabel:SetLabel(getCurrentSea())
+        
+        local scanResult = scanMapForEvents()
+        
+        for _, eventName in pairs(scanResult.seaEvent) do if not table.find(lastScan.seaEvent, eventName) then notifyIfNewEvent("seaEvent", eventName) end end
+        for _, eventName in pairs(scanResult.raidBoss) do if not table.find(lastScan.raidBoss, eventName) then notifyIfNewEvent("raidBoss", eventName) end end
+        for _, eventName in pairs(scanResult.worldBoss) do if not table.find(lastScan.worldBoss, eventName) then notifyIfNewEvent("worldBoss", eventName) end end
+        for _, islandName in pairs(scanResult.raceIsland) do if not table.find(lastScan.raceIsland, islandName) then notifyIfNewEvent("raceIsland", islandName) end end
+        
+        for _, eventName in pairs(lastScan.seaEvent) do if not table.find(scanResult.seaEvent, eventName) then resetNotificationIfGone("seaEvent", eventName) end end
+        for _, eventName in pairs(lastScan.raidBoss) do if not table.find(scanResult.raidBoss, eventName) then resetNotificationIfGone("raidBoss", eventName) end end
+        for _, eventName in pairs(lastScan.worldBoss) do if not table.find(scanResult.worldBoss, eventName) then resetNotificationIfGone("worldBoss", eventName) end end
+        for _, islandName in pairs(lastScan.raceIsland) do if not table.find(scanResult.raceIsland, islandName) then resetNotificationIfGone("raceIsland", islandName) end end
+        
+        seaEventLabel:SetLabel(#scanResult.seaEvent > 0 and "🌊 Sea Event: 🟢 " .. table.concat(scanResult.seaEvent, ", ") or "🌊 Sea Event: 🔴 Không có")
+        raceIslandLabel:SetLabel(#scanResult.raceIsland > 0 and "🏝️ Race Island: 🟢 " .. table.concat(scanResult.raceIsland, ", ") or "🏝️ Race Island: 🔴 Không có")
+        raidBossLabel:SetLabel(#scanResult.raidBoss > 0 and "⚔️ Raid Boss: 🟢 " .. table.concat(scanResult.raidBoss, ", ") or "⚔️ Raid Boss: 🔴 Không có")
+        worldBossLabel:SetLabel(#scanResult.worldBoss > 0 and "👹 World Boss: 🟢 " .. table.concat(scanResult.worldBoss, ", ") or "👹 World Boss: 🔴 Không có")
+        
+        lastScan = scanResult
+    end
+end
+
+TabStatus:AddButton({Title = "🔄 Rejoin Server", Description = "Vào lại server hiện tại", Callback = function() game:GetService("TeleportService"):Teleport(game.PlaceId) end})
+TabStatus:AddButton({Title = "🚀 Hop Server", Description = "Tìm server mới", Callback = function()
+    local servers = {}
+    local success, data = pcall(function() return game:GetService("HttpService"):JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?limit=100")) end)
+    if success and data then
+        for _, v in pairs(data.data) do
+            if v.playing < v.maxPlayers and v.id ~= game.JobId then table.insert(servers, v.id) end
+        end
+    end
+    if #servers > 0 then game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, servers[math.random(1, #servers)]) end
+end})
+
+coroutine.wrap(updateStatusAndScan)()
+
+-- ============ TAB MAIN ============
+TabMain:AddSection("Tính Năng Chính")
+
+TabMain:AddToggle("AutoFarm", {Title = "Auto Farm", Description = "Tự động farm quái gần nhất", Default = false, Callback = function(value) autoFarm = value if autoFarm then coroutine.wrap(startFarm)() end end})
+TabMain:AddToggle("AutoQuest", {Title = "Auto Quest", Description = "Tự động nhận và hoàn thành quest", Default = false, Callback = function(value) autoQuest = value if autoQuest then coroutine.wrap(startQuest)() end end})
+
+-- ============ TAB SETTING FARM ============
+TabSettingFarm:AddSection("Cài Đặt Farm")
+
+TabSettingFarm:AddSlider("Delay", {Title = "Delay giữa các lần farm", Description = "Thời gian chờ (giây)", Default = 0.5, Min = 0, Max = 3, Rounding = 1, Callback = function(value) farmDelay = value end})
+TabSettingFarm:AddDropdown("Vũ Khí", {Title = "Chọn vũ khí sử dụng", Description = "Vũ khí chính để farm", Values = {"Sword", "Blox Fruit", "Melee", "Gun"}, Default = "Sword", Multi = false, Callback = function(value) selectedWeapon = value Fluent:Notify({Title = "Đã chọn", Content = "Vũ khí: " .. value, Duration = 2}) end})
+
+-- ============ TAB STATS ============
+TabStats:AddSection("Thống Kê Người Chơi")
+
+local levelLabel = TabStats:AddLabel("Level: Đang tải...")
+local bountyLabel = TabStats:AddLabel("Bounty: Đang tải...")
+local fruitLabel = TabStats:AddLabel("Trái ác quỷ: Chưa có")
+
+local function updateStats()
+    while task.wait(3) do
+        local playerData = LocalPlayer:FindFirstChild("Data")
+        if playerData then
+            levelLabel:SetLabel("Level: " .. (playerData:FindFirstChild("Level") and playerData.Level.Value or "0"))
+            bountyLabel:SetLabel("Bounty: " .. (playerData:FindFirstChild("Bounty") and playerData.Bounty.Value or "0"))
+            fruitLabel:SetLabel("Trái ác quỷ: " .. (playerData:FindFirstChild("Fruit") and playerData.Fruit.Value or "Chưa có"))
+        end
+    end
+end
+coroutine.wrap(updateStats)()
+
+-- ============ TAB SEA EVENT ============
+TabSeaEvent:AddSection("Sự Kiện Biển")
+
+TabSeaEvent:AddToggle("AutoSeaEvent", {Title = "Tự động tham gia sự kiện biển", Description = "Tự động join Sea Event khi có", Default = false, Callback = function(value) autoSeaEvent = value if autoSeaEvent then coroutine.wrap(startSeaEvent)() end end})
+
+-- ============ TAB DUNGEON ============
+TabDungeon:AddSection("Dungeon")
+
+TabDungeon:AddToggle("AutoDungeon", {Title = "Tự động đi Dungeon", Description = "Tự động join dungeon", Default = false, Callback = function(value) autoDungeon = value if autoDungeon then coroutine.wrap(startDungeon)() end end})
+TabDungeon:AddDropdown("Chế Độ Dungeon", {Title = "Độ khó", Description = "Chọn chế độ dungeon", Values = {"Easy", "Medium", "Hard", "Expert"}, Default = "Easy", Multi = false, Callback = function(value) print("Đã chọn chế độ:", value) end})
+
+-- ============ TAB TELEPORT ============
+TabTeleport:AddSection("Teleport Đảo")
+
+local islands = {
+    ["Đảo khởi đầu"] = CFrame.new(-100, 10, 0),
+    ["Đảo thứ hai"] = CFrame.new(500, 10, 200),
+    ["Đảo thứ ba"] = CFrame.new(1200, 15, -300),
+    ["Đảo Boss"] = CFrame.new(800, 20, 600),
+    ["Biển lớn"] = CFrame.new(2000, 5, 1000)
+}
+
+TabTeleport:AddDropdown("Đảo", {Title = "Chọn đảo cần teleport", Description = "Danh sách các đảo trong game", Values = {"Đảo khởi đầu", "Đảo thứ hai", "Đảo thứ ba", "Đảo Boss", "Biển lớn"}, Default = "Đảo khởi đầu", Multi = false, Callback = function(value) selectedIsland = value end})
+TabTeleport:AddButton({Title = "Teleport Ngay", Description = "Dịch chuyển đến đảo đã chọn", Callback = function() if islands[selectedIsland] then teleportTo(islands[selectedIsland]) Fluent:Notify({Title = "Teleport", Content = "Đã dịch chuyển đến " .. selectedIsland, Duration = 2}) end end})
+
+-- ============ TAB SHOP ============
+TabShop:AddSection("Cửa Hàng")
+
+TabShop:AddToggle("AutoBuy", {Title = "Tự động mua", Description = "Tự động mua vật phẩm trong shop", Default = false, Callback = function(value) autoBuy = value end})
+TabShop:AddDropdown("Trái Ác Quỷ", {Title = "Chọn trái muốn mua", Description = "Danh sách trái có thể mua", Values = {"Magma", "Ice", "Flame", "Light", "Dark", "Quake"}, Default = "Magma", Multi = false, Callback = function(value) selectedFruit = value end})
+TabShop:AddButton({Title = "Mua Trái", Description = "Mua trái ác quỷ đã chọn", Callback = function()
+    local shopRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+    if shopRemote and shopRemote:FindFirstChild("Shop") then
+        shopRemote.Shop:FireServer("BuyFruit", selectedFruit)
+    end
+    Fluent:Notify({Title = "Shop", Content = "Đã mua " .. selectedFruit, Duration = 2})
+end})
+
+-- Khởi tạo SaveManager
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:SetFolder("NducHub")
+SaveManager:SetFolder("NducHub/saves")
+InterfaceManager:BuildInterfaceSection("Settings")
+SaveManager:BuildConfigSection("Settings")
+
+Fluent:Notify({
+    Title = "NducHub",
+    Content = "Đã tải thành công!",
+    SubContent = "By Nduc | King Legacy",
+    Duration = 5
+})
